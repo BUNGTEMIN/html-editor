@@ -432,6 +432,51 @@ export default function App() {
     }
   }
 
+  const isEmbedded = useMemo(
+    () => typeof window !== 'undefined' && (window.self !== window.top || Boolean(window.opener)),
+    []
+  );
+
+  useEffect(() => {
+    function handleParentMessage(ev: MessageEvent) {
+      const d = ev?.data;
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'BUNGTEMIN_LOAD_STUDIO_JSON' && d.studio_json) {
+        try {
+          const parsed = typeof d.studio_json === 'string' ? JSON.parse(d.studio_json) : d.studio_json;
+          if (parsed && Array.isArray(parsed.blocks)) {
+            setDoc(parsed);
+            setSelectedBlockId(parsed.blocks[0]?.id ?? null);
+            setAppView('editor');
+            showToast(`Desain "${parsed.title || 'Template'}" dibuka untuk diedit.`);
+          }
+        } catch {
+          // ignore invalid JSON
+        }
+      }
+    }
+    window.addEventListener('message', handleParentMessage);
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'BUNGTEMIN_MAIL_STUDIO_READY' }, '*');
+    }
+    return () => window.removeEventListener('message', handleParentMessage);
+  }, []);
+
+  function handleSendToAdmin() {
+    const msg = {
+      type: 'BUNGTEMIN_MAIL_STUDIO_HTML',
+      title: doc.title,
+      html: compiledHtml,
+      studio_json: JSON.stringify(doc),
+    };
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(msg, '*');
+    } else if (window.opener) {
+      window.opener.postMessage(msg, '*');
+    }
+    showToast('HTML & desain berhasil dikirim ke Form Broadcast Bungtemin!');
+  }
+
   function handleDownloadHtml() {
     const slug = doc.title
       .toLowerCase()
@@ -485,6 +530,8 @@ export default function App() {
         onDownloadHtml={handleDownloadHtml}
         onCopyHtml={handleCopyHtml}
         copiedRecently={copiedRecently}
+        isEmbedded={isEmbedded}
+        onSendToAdmin={handleSendToAdmin}
       />
 
       {/* Mobile workspace pane switcher (visible below lg) */}

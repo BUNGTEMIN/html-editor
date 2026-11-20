@@ -10,6 +10,7 @@ import {
   Mail,
   Monitor,
   Redo2,
+  Send,
   Smartphone,
   Undo2,
 } from 'lucide-react';
@@ -35,6 +36,8 @@ interface TopBarProps {
   onDownloadHtml: () => void;
   onCopyHtml: () => void;
   copiedRecently: boolean;
+  isEmbedded?: boolean;
+  onSendToAdmin?: () => void;
 }
 
 export function TopBar({
@@ -55,6 +58,8 @@ export function TopBar({
   onDownloadHtml,
   onCopyHtml,
   copiedRecently,
+  isEmbedded,
+  onSendToAdmin,
 }: TopBarProps) {
   return (
     <header className="h-14 bg-white border-b border-slate-200 px-3 lg:px-4 flex items-center justify-between gap-2.5 shrink-0 z-20">
@@ -259,6 +264,17 @@ export function TopBar({
           )}
           <span>{copiedRecently ? 'HTML Disalin' : 'Copy Script HTML'}</span>
         </button>
+
+        {isEmbedded && onSendToAdmin && (
+          <button
+            type="button"
+            onClick={onSendToAdmin}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
+          >
+            <Send className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Kirim ke Broadcast</span>
+          </button>
+        )}
       </div>
     </header>
   );
