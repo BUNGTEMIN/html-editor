@@ -179,6 +179,52 @@ function RangeField({
   );
 }
 
+function uploadImageViaParent(file: File, dataUrl: string): Promise<{ ok: boolean; url?: string; error?: string }> {
+  return new Promise((resolve) => {
+    const target = window.parent && window.parent !== window ? window.parent : window.opener;
+    if (!target) {
+      resolve({ ok: false, error: 'standalone' });
+      return;
+    }
+    const requestId = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('message', onMsg);
+      resolve({ ok: false, error: 'Waktu unggah ke NUDB habis.' });
+    }, 35000);
+
+    function onMsg(ev: MessageEvent) {
+      const d = ev?.data;
+      if (!d || typeof d !== 'object' || d.type !== 'BUNGTEMIN_UPLOAD_IMAGE_RESULT' || d.requestId !== requestId) {
+        return;
+      }
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('message', onMsg);
+      resolve({
+        ok: Boolean(d.ok && d.url),
+        url: typeof d.url === 'string' ? d.url : '',
+        error: typeof d.error === 'string' ? d.error : undefined,
+      });
+    }
+
+    window.addEventListener('message', onMsg);
+    target.postMessage(
+      {
+        type: 'BUNGTEMIN_UPLOAD_IMAGE',
+        requestId,
+        filename: file.name || 'image.png',
+        mimeType: file.type || 'image/png',
+        dataUrl,
+      },
+      '*'
+    );
+  });
+}
+
 function ImageUploadRow({
   id,
   label,
@@ -193,15 +239,30 @@ function ImageUploadRow({
   showGalleryPicks?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadHint, setUploadHint] = useState<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadHint(null);
     const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        onChange(reader.result);
+    reader.onload = async () => {
+      if (typeof reader.result !== 'string') return;
+      const dataUrl = reader.result;
+      const isEmbedded = window.self !== window.top || Boolean(window.opener);
+      if (isEmbedded) {
+        setUploading(true);
+        const res = await uploadImageViaParent(file, dataUrl);
+        setUploading(false);
+        if (res.ok && res.url) {
+          onChange(res.url);
+          setUploadHint('Terunggah ke NUDB');
+          return;
+        }
+        setUploadHint(res.error ? `${res.error} (pakai Base64)` : 'Fallback ke Base64');
       }
+      onChange(dataUrl);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -229,13 +290,17 @@ function ImageUploadRow({
         />
         <button
           type="button"
+          disabled={uploading}
           onClick={() => fileRef.current?.click()}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer shrink-0"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 rounded-md transition-colors cursor-pointer shrink-0"
         >
           <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-          <span>Upload</span>
+          <span>{uploading ? 'Mengunggah...' : 'Upload'}</span>
         </button>
       </div>
+      {uploadHint && (
+        <div className="text-[11px] text-emerald-700 font-medium">{uploadHint}</div>
+      )}
       {value.startsWith('data:image/') && (
         <button
           type="button"
