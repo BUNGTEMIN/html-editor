@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FolderOpen, Layers, Redo2, SlidersHorizontal, Undo2 } from 'lucide-react';
+import {
+  Eye,
+  FolderOpen,
+  Layers,
+  Redo2,
+  SlidersHorizontal,
+  Undo2,
+} from 'lucide-react';
 import type {
   BlockType,
   EmailBlock,
@@ -32,13 +39,27 @@ import { TopBar } from './components/TopBar';
 import { SidebarLeft } from './components/SidebarLeft';
 import { CanvasEditor } from './components/CanvasEditor';
 import { InspectorRight } from './components/InspectorRight';
-import { TemplateModal } from './components/TemplateModal';
+import { LivePreviewPane } from './components/LivePreviewPane';
+import { TemplateGalleryPage } from './components/TemplateGalleryPage';
 import { JsonModal } from './components/JsonModal';
 import { Toast, type ToastMessage } from './components/Toast';
 
 const MAX_HISTORY = 40;
 
-type MobilePane = 'saved' | 'canvas' | 'inspector';
+type MobilePane = 'saved' | 'canvas' | 'preview' | 'inspector';
+type AppView = 'gallery' | 'editor';
+
+function getInitialAppView(): AppView {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autostart') === '1') {
+      return 'editor';
+    }
+  } catch {
+    // ignore
+  }
+  return 'gallery';
+}
 
 function loadInitialWorkspace(): {
   activeDoc: EmailDocument;
@@ -64,14 +85,18 @@ export default function App() {
   const [past, setPast] = useState<EmailDocument[]>([]);
   const [future, setFuture] = useState<EmailDocument[]>([]);
 
+  const [appView, setAppView] = useState<AppView>(() => getInitialAppView());
+  const [hasVisitedEditor, setHasVisitedEditor] = useState<boolean>(
+    () => getInitialAppView() === 'editor'
+  );
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(
     () => doc.blocks[0]?.id ?? null
   );
   const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
+  const [showLivePreview, setShowLivePreview] = useState<boolean>(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('blocks');
   const [mobilePane, setMobilePane] = useState<MobilePane>('canvas');
 
-  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
   const [isJsonOpen, setIsJsonOpen] = useState(false);
   const [copiedRecently, setCopiedRecently] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -276,7 +301,19 @@ export default function App() {
       persistSavedDesigns(next);
       return next;
     });
+    setHasVisitedEditor(true);
+    setAppView('editor');
+    setMobilePane('canvas');
     showToast(`Template "${freshDoc.title}" berhasil dimuat.`);
+  }
+
+  function handleOpenGallery() {
+    setAppView('gallery');
+  }
+
+  function handleResumeEditor() {
+    setHasVisitedEditor(true);
+    setAppView('editor');
   }
 
   function handleSaveCurrentDesign() {
@@ -309,6 +346,8 @@ export default function App() {
     setFuture([]);
     setDoc(design);
     setSelectedBlockId(design.blocks[0]?.id ?? null);
+    setHasVisitedEditor(true);
+    setAppView('editor');
     setMobilePane('canvas');
     showToast(`Membuka "${design.title}".`);
   }
@@ -327,6 +366,8 @@ export default function App() {
     });
     setDoc(copy);
     setSelectedBlockId(copy.blocks[0]?.id ?? null);
+    setHasVisitedEditor(true);
+    setAppView('editor');
     showToast('Desain berhasil diduplikat.');
   }
 
@@ -381,6 +422,24 @@ export default function App() {
     showToast(`File ${slug || 'bungtemin-email'}.html mulai diunduh.`);
   }
 
+  if (appView === 'gallery') {
+    return (
+      <>
+        <TemplateGalleryPage
+          activeDoc={doc}
+          hasVisitedEditor={hasVisitedEditor}
+          savedDesigns={savedDesigns}
+          onSelectTemplate={handleSelectTemplate}
+          onResumeEditor={handleResumeEditor}
+          onLoadSavedDesign={handleLoadDesign}
+          onDuplicateSavedDesign={handleDuplicateDesign}
+          onDeleteSavedDesign={handleDeleteDesign}
+        />
+        <Toast toast={toast} onDismiss={() => setToast(null)} />
+      </>
+    );
+  }
+
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900">
       <TopBar
@@ -392,7 +451,9 @@ export default function App() {
         onRedo={handleRedo}
         previewMode={previewMode}
         onPreviewModeChange={setPreviewMode}
-        onOpenTemplates={() => setIsTemplateOpen(true)}
+        showLivePreview={showLivePreview}
+        onToggleLivePreview={() => setShowLivePreview((prev) => !prev)}
+        onOpenTemplates={handleOpenGallery}
         onOpenJson={() => setIsJsonOpen(true)}
         onDownloadHtml={handleDownloadHtml}
         onCopyHtml={handleCopyHtml}
@@ -424,11 +485,12 @@ export default function App() {
         <div
           role="tablist"
           aria-label="Navigasi Panel Mobile"
-          className="grid grid-cols-3 gap-1 flex-1 bg-slate-100 p-0.5 rounded-lg"
+          className="grid grid-cols-4 gap-1 flex-1 bg-slate-100 p-0.5 rounded-lg"
         >
           {[
             { id: 'saved' as const, label: 'Desain', icon: FolderOpen },
             { id: 'canvas' as const, label: 'Kanvas', icon: Layers },
+            { id: 'preview' as const, label: 'Preview', icon: Eye },
             { id: 'inspector' as const, label: 'Inspector', icon: SlidersHorizontal },
           ].map(({ id, label, icon: Icon }) => (
             <button
@@ -437,25 +499,25 @@ export default function App() {
               role="tab"
               aria-selected={mobilePane === id}
               onClick={() => setMobilePane(id)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`flex items-center justify-center gap-1 py-1.5 text-[11px] font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                 mobilePane === id
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+              <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>{label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* 3-Column Studio Workspace */}
+      {/* Studio Workspace (3-Column or Split Canvas + Live Preview Iframe) */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
         <div
           className={`${
             mobilePane === 'saved' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-auto h-full shrink-0`}
+          } ${showLivePreview ? '2xl:flex' : 'lg:flex'} lg:w-auto h-full shrink-0`}
         >
           <SidebarLeft
             currentDoc={doc}
@@ -492,8 +554,27 @@ export default function App() {
             onDeleteBlock={handleDeleteBlock}
             onInsertBlockAt={handleInsertBlockAt}
             onReorderBlocks={handleReorderBlocks}
-            onOpenTemplates={() => setIsTemplateOpen(true)}
+            onOpenTemplates={handleOpenGallery}
           />
+        </div>
+
+        {/* Live HTML Iframe Preview beside Canvas Editor */}
+        <div
+          className={`${
+            mobilePane === 'preview' ? 'flex w-full' : 'hidden'
+          } ${showLivePreview ? 'lg:flex lg:flex-1' : 'lg:hidden'} min-w-0 h-full`}
+        >
+          {(showLivePreview || mobilePane === 'preview') && (
+            <LivePreviewPane
+              compiledHtml={compiledHtml}
+              previewMode={previewMode}
+              onPreviewModeChange={setPreviewMode}
+              onClose={() => {
+                setShowLivePreview(false);
+                if (mobilePane === 'preview') setMobilePane('canvas');
+              }}
+            />
+          )}
         </div>
 
         <div
@@ -507,6 +588,7 @@ export default function App() {
             selectedBlock={selectedBlock}
             pageStyle={doc.pageStyle}
             compiledHtml={compiledHtml}
+            compact={showLivePreview}
             onAddBlock={handleAddBlock}
             onUpdateBlock={handleUpdateBlock}
             onUpdatePageStyle={handleUpdatePageStyle}
@@ -516,12 +598,6 @@ export default function App() {
           />
         </div>
       </div>
-
-      <TemplateModal
-        isOpen={isTemplateOpen}
-        onClose={() => setIsTemplateOpen(false)}
-        onSelectTemplate={handleSelectTemplate}
-      />
 
       <JsonModal
         isOpen={isJsonOpen}

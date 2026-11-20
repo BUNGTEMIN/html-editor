@@ -10,16 +10,31 @@ import {
   validateImportedDocument,
 } from './blocks';
 import { compileToEmailHtml } from './compiler';
-import { cloneTemplateToDocument, TEMPLATE_PRESETS } from './templates';
+import {
+  cloneTemplateToDocument,
+  filterTemplates,
+  TEMPLATE_PRESETS,
+} from './templates';
 import type { EmailDocument } from '../types/email';
 
-test('TEMPLATE_PRESETS includes at least 4 required starter templates', () => {
-  assert.ok(TEMPLATE_PRESETS.length >= 4);
+test('TEMPLATE_PRESETS includes 8 starter templates and filterTemplates works accurately', () => {
+  assert.ok(TEMPLATE_PRESETS.length >= 8);
   const ids = TEMPLATE_PRESETS.map((t) => t.id);
   assert.ok(ids.includes('pengumuman-resmi'));
   assert.ok(ids.includes('undangan-rapat'));
   assert.ok(ids.includes('newsletter-buletin'));
   assert.ok(ids.includes('kanvas-kosong'));
+
+  const onlyUndangan = filterTemplates(TEMPLATE_PRESETS, '', 'Undangan');
+  assert.equal(onlyUndangan.length, 1);
+  assert.equal(onlyUndangan[0].id, 'undangan-rapat');
+
+  const searchWebinar = filterTemplates(TEMPLATE_PRESETS, 'webinar', 'Semua');
+  assert.equal(searchWebinar.length, 1);
+  assert.equal(searchWebinar[0].id, 'webinar-pelatihan');
+
+  const noMatch = filterTemplates(TEMPLATE_PRESETS, 'tidak-ada-xyz', 'Semua');
+  assert.equal(noMatch.length, 0);
 });
 
 test('compileToEmailHtml produces complete responsive email-safe HTML', () => {

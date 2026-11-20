@@ -32,6 +32,7 @@ interface InspectorRightProps {
   selectedBlock: EmailBlock | null;
   pageStyle: PageStyle;
   compiledHtml: string;
+  compact?: boolean;
   onAddBlock: (type: BlockType) => void;
   onUpdateBlock: (updated: EmailBlock) => void;
   onUpdatePageStyle: (updated: PageStyle) => void;
@@ -65,6 +66,7 @@ export function InspectorRight({
   selectedBlock,
   pageStyle,
   compiledHtml,
+  compact = false,
   onAddBlock,
   onUpdateBlock,
   onUpdatePageStyle,
@@ -79,7 +81,9 @@ export function InspectorRight({
   return (
     <aside
       aria-label="Panel Inspector dan Pustaka Blok"
-      className="w-full lg:w-[360px] xl:w-[380px] bg-white border-l border-slate-200 flex flex-col h-full shrink-0 overflow-hidden"
+      className={`w-full ${
+        compact ? 'lg:w-[320px] xl:w-[332px]' : 'lg:w-[360px] xl:w-[380px]'
+      } bg-white border-l border-slate-200 flex flex-col h-full shrink-0 overflow-hidden`}
     >
       {/* 4-Tab Segmented Bar */}
       <div
