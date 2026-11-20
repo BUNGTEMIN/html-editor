@@ -1,10 +1,12 @@
 import {
   Check,
+  CheckCircle2,
   Copy,
   Download,
   Eye,
   FileJson,
   LayoutTemplate,
+  Loader2,
   Mail,
   Monitor,
   Redo2,
@@ -13,9 +15,13 @@ import {
 } from 'lucide-react';
 import type { PreviewMode } from '../types/email';
 
+export type SaveStatus = 'saved' | 'saving';
+
 interface TopBarProps {
   title: string;
   onTitleChange: (title: string) => void;
+  saveStatus: SaveStatus;
+  lastSavedText: string;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -34,6 +40,8 @@ interface TopBarProps {
 export function TopBar({
   title,
   onTitleChange,
+  saveStatus,
+  lastSavedText,
   canUndo,
   canRedo,
   onUndo,
@@ -50,8 +58,8 @@ export function TopBar({
 }: TopBarProps) {
   return (
     <header className="h-14 bg-white border-b border-slate-200 px-3 lg:px-4 flex items-center justify-between gap-2.5 shrink-0 z-20">
-      {/* Left: Brand & Document Title */}
-      <div className="flex items-center gap-2.5 min-w-0 flex-1 max-w-xs xl:max-w-sm">
+      {/* Left: Brand, Document Title & Auto-Save Status */}
+      <div className="flex items-center gap-2.5 min-w-0 flex-1 max-w-sm xl:max-w-md">
         <button
           type="button"
           onClick={onOpenTemplates}
@@ -82,6 +90,36 @@ export function TopBar({
           placeholder="Judul dokumen email..."
           className="hidden sm:block min-w-0 flex-1 text-sm font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-slate-400 focus:bg-slate-50 rounded-md px-2 py-1 outline-none transition-colors truncate"
         />
+
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="autosave-status"
+          title={
+            saveStatus === 'saving'
+              ? 'Sedang menyimpan perubahan ke penyimpanan lokal...'
+              : `Semua perubahan tersimpan otomatis (${lastSavedText})`
+          }
+          className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 pl-1"
+        >
+          {saveStatus === 'saving' ? (
+            <>
+              <Loader2
+                className="w-3.5 h-3.5 text-amber-600 animate-spin shrink-0"
+                aria-hidden="true"
+              />
+              <span className="text-amber-700">Menyimpan...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2
+                className="w-3.5 h-3.5 text-emerald-600 shrink-0"
+                aria-hidden="true"
+              />
+              <span className="text-slate-500">Tersimpan</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Center: Undo/Redo, Preview Viewport Switcher & Live Preview Switch */}

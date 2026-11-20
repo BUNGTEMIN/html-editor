@@ -35,7 +35,7 @@ import {
   upsertSavedDesign,
 } from './utils/storage';
 import { cloneTemplateToDocument } from './utils/templates';
-import { TopBar } from './components/TopBar';
+import { TopBar, type SaveStatus } from './components/TopBar';
 import { SidebarLeft } from './components/SidebarLeft';
 import { CanvasEditor } from './components/CanvasEditor';
 import { InspectorRight } from './components/InspectorRight';
@@ -100,11 +100,15 @@ export default function App() {
   const [isJsonOpen, setIsJsonOpen] = useState(false);
   const [copiedRecently, setCopiedRecently] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [lastSavedText, setLastSavedText] = useState<string>(() =>
     formatIndonesianTimestamp(doc.updatedAt)
   );
 
   const toastTimerRef = useRef<number | null>(null);
+  const hasMountedRef = useRef(false);
+  const latestDocRef = useRef(doc);
+  latestDocRef.current = doc;
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error' = 'success') => {
@@ -119,17 +123,38 @@ export default function App() {
     []
   );
 
-  // Auto-save active document and sync with savedDesigns if already saved
+  // Flush any pending debounced save on page unload so no edits are ever lost
   useEffect(() => {
-    persistActiveDocument(doc);
-    setLastSavedText(formatIndonesianTimestamp(doc.updatedAt));
-    setSavedDesigns((prev) => {
-      const exists = prev.some((d) => d.id === doc.id);
-      if (!exists) return prev;
-      const next = prev.map((d) => (d.id === doc.id ? doc : d));
-      persistSavedDesigns(next);
-      return next;
-    });
+    function handleBeforeUnload() {
+      persistActiveDocument(latestDocRef.current);
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Auto-save active document with visible "Menyimpan..." -> "Tersimpan" feedback
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      persistActiveDocument(doc);
+      return;
+    }
+
+    setSaveStatus('saving');
+    const timer = window.setTimeout(() => {
+      persistActiveDocument(doc);
+      setLastSavedText(formatIndonesianTimestamp(doc.updatedAt));
+      setSavedDesigns((prev) => {
+        const exists = prev.some((d) => d.id === doc.id);
+        if (!exists) return prev;
+        const next = prev.map((d) => (d.id === doc.id ? doc : d));
+        persistSavedDesigns(next);
+        return next;
+      });
+      setSaveStatus('saved');
+    }, 450);
+
+    return () => window.clearTimeout(timer);
   }, [doc]);
 
   const commitDoc = useCallback((updater: (prev: EmailDocument) => EmailDocument) => {
@@ -445,6 +470,8 @@ export default function App() {
       <TopBar
         title={doc.title}
         onTitleChange={handleTitleChange}
+        saveStatus={saveStatus}
+        lastSavedText={lastSavedText}
         canUndo={past.length > 0}
         canRedo={future.length > 0}
         onUndo={handleUndo}
@@ -523,6 +550,7 @@ export default function App() {
             currentDoc={doc}
             savedDesigns={savedDesigns}
             selectedBlockId={selectedBlockId}
+            saveStatus={saveStatus}
             onTitleChange={handleTitleChange}
             onSelectBlock={(id) => {
               handleSelectBlock(id);

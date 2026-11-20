@@ -7,6 +7,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { EmailBlock, EmailDocument } from '../types/email';
+import type { SaveStatus } from './TopBar';
 import { getBlockLabel } from '../utils/blocks';
 import { formatIndonesianTimestamp } from '../utils/storage';
 
@@ -14,6 +15,7 @@ interface SidebarLeftProps {
   currentDoc: EmailDocument;
   savedDesigns: EmailDocument[];
   selectedBlockId: string | null;
+  saveStatus: SaveStatus;
   onTitleChange: (title: string) => void;
   onSelectBlock: (blockId: string) => void;
   onSaveDesign: () => void;
@@ -51,6 +53,7 @@ export function SidebarLeft({
   currentDoc,
   savedDesigns,
   selectedBlockId,
+  saveStatus,
   onTitleChange,
   onSelectBlock,
   onSaveDesign,
@@ -116,7 +119,9 @@ export function SidebarLeft({
         </div>
 
         <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-          <span>Auto-save lokal aktif</span>
+          <span className={saveStatus === 'saving' ? 'text-amber-700 font-medium' : ''}>
+            {saveStatus === 'saving' ? 'Menyimpan...' : 'Tersimpan otomatis'}
+          </span>
           <span className="tabular-nums">{lastSavedText}</span>
         </div>
 
