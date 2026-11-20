@@ -1,10 +1,21 @@
 import type { BlockType, EmailBlock, EmailDocument, PageStyle } from '../types/email';
 
+const PUBLIC_ORIGIN =
+  typeof window !== 'undefined' && /^https?:\/\//i.test(window.location.origin)
+    ? window.location.origin
+    : 'https://html-editor-sable.vercel.app';
+
 export const DEFAULT_GALLERY_IMAGES = {
-  heroAuditorium: '/src/assets/images/newsletter_hero_banner_1795191613405.jpg',
-  workshopTable: '/src/assets/images/newsletter_card_program_1795191614549.jpg',
-  civicAtrium: '/src/assets/images/newsletter_card_community_1795191615366.jpg',
+  heroAuditorium: `${PUBLIC_ORIGIN}/images/hero-banner.jpg`,
+  workshopTable: `${PUBLIC_ORIGIN}/images/card-program.jpg`,
+  civicAtrium: `${PUBLIC_ORIGIN}/images/card-community.jpg`,
 } as const;
+
+const LEGACY_ASSET_MAP: Record<string, string> = {
+  '/src/assets/images/newsletter_hero_banner_1795191613405.jpg': DEFAULT_GALLERY_IMAGES.heroAuditorium,
+  '/src/assets/images/newsletter_card_program_1795191614549.jpg': DEFAULT_GALLERY_IMAGES.workshopTable,
+  '/src/assets/images/newsletter_card_community_1795191615366.jpg': DEFAULT_GALLERY_IMAGES.civicAtrium,
+};
 
 export const FONT_FAMILY_OPTIONS = [
   { label: 'Arial / Helvetica (Standar Email)', value: 'Arial, Helvetica, sans-serif' },
@@ -307,6 +318,8 @@ export function escapeHtml(input: string): string {
 export function sanitizeUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return '#';
+  if (LEGACY_ASSET_MAP[trimmed]) return LEGACY_ASSET_MAP[trimmed];
+  if (trimmed.startsWith('/images/')) return `${PUBLIC_ORIGIN}${trimmed}`;
   const lower = trimmed.toLowerCase();
   if (
     lower.startsWith('http://') ||
