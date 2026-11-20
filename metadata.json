@@ -1,0 +1,6 @@
+{
+  "name": "Bungtemin Mail Studio",
+  "description": "No-Code Drag-and-Drop Email & Broadcast HTML Builder untuk membuat pengumuman, undangan, dan newsletter organisasi yang responsif di HP maupun desktop.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
